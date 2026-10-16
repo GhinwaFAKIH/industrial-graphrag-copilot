@@ -1,5 +1,7 @@
 
 from pathlib import Path
+from html import escape as html_escape
+import re
 
 import pandas as pd
 import streamlit as st
@@ -34,13 +36,13 @@ st.set_page_config(
 st.markdown("""
 <style>
 .block-container {
-    max-width: 1500px;
+    max-width: 1550px;
     padding-top: 1.6rem;
     padding-bottom: 3rem;
 }
 
 section[data-testid="stSidebar"] {
-    background: #101B2E;
+    background: #091B30;
     border-right: 1px solid #263750;
 }
 
@@ -103,6 +105,28 @@ div[data-testid="stChatInput"] { border: 1px solid #0891B2; border-radius: 12px;
 .evidence-card.sensor { border-color: #0D9488; }
 .evidence-card.graph { border-color: #3B82F6; }
 .evidence-card.docs { border-color: #8B5CF6; }
+
+/* Match the showcase: clean neon accents, dark glass cards, and tables */
+div[data-testid="stMetric"] { border-radius: 13px; border: 1px solid #254B70; background: linear-gradient(140deg,#112C4D,#0B1C32); }
+div[data-testid="stHorizontalBlock"] > div:nth-child(2) div[data-testid="stMetric"] { border-color: #9E4059; background: linear-gradient(140deg,#3B1D35,#141D35); }
+div[data-testid="stHorizontalBlock"] > div:nth-child(3) div[data-testid="stMetric"] { border-color: #127B63; background: linear-gradient(140deg,#103B39,#102339); }
+div[data-testid="stHorizontalBlock"] > div:nth-child(4) div[data-testid="stMetric"] { border-color: #64748B; }
+div[data-testid="stChatMessage"] { background: #11243C; border: 1px solid #264765; }
+.stTabs [data-baseweb="tab-list"] { border-bottom: 1px solid #243C56; }
+.stTabs [data-baseweb="tab"] { font-weight: 600; }
+.showcase-table { width: 100%; border-collapse: collapse; font-size: .92rem; background: #0C192C; }
+.showcase-table th { text-align: left; background: #17253A; color: #CBD5E1; }
+.showcase-table td,.showcase-table th { padding: 12px 13px; border: 1px solid #253750; }
+.showcase-table tr:hover td { background: #15253D; }
+.status-attention { color: #FB7185; font-weight: 700; }
+.status-normal { color: #34D399; font-weight: 700; }
+.status-unknown { color: #94A3B8; font-weight: 700; }
+.evidence-strip { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 18px; }
+.evidence-pill { padding:9px 12px; background:#123C42; border:1px solid #0D9488; border-radius:8px; color:#CFFAFE; font-size:.82rem; }
+.evidence-pill.graph { background:#142D54; border-color:#3B82F6; }
+.evidence-pill.doc { background:#2A1F4B; border-color:#8B5CF6; }
+.graph-legend { display:flex; flex-wrap:wrap; gap:16px; color:#CBD5E1; font-size:.83rem; margin:12px 0; }
+.graph-dot { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:5px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -380,12 +404,30 @@ with tab_fleet:
 
     st.divider()
 
-    display_df = fleet_df.fillna("No data")
-    st.dataframe(
-        display_df,
-        hide_index=True,
-        use_container_width=True,
+    # HTML table makes missing data and warning states immediately readable.
+    table_rows = []
+    for _, machine in fleet_df.iterrows():
+        status = str(machine["Status"])
+        cls = {"Attention": "attention", "Normal": "normal"}.get(status, "unknown")
+        status_icon = {"Attention": "●", "Normal": "●", "Unknown": "●"}.get(status, "●")
+        def display_value(value):
+            return "No data" if pd.isna(value) else html_escape(str(value))
+        table_rows.append(
+            "<tr>"
+            f'<td><strong>{html_escape(str(machine["Machine"]))}</strong></td>'
+            f'<td>{display_value(machine["Temperature (°C)"])}</td>'
+            f'<td>{display_value(machine["Vibration (mm/s)"])}</td>'
+            f'<td><span class="status-{cls}">{status_icon} {html_escape(status)}</span></td>'
+            f'<td>{display_value(machine["Possible faults"])}</td>'
+            "</tr>"
+        )
+    table_html = (
+        '<table class="showcase-table"><thead><tr>'
+        '<th>Machine</th><th>Temperature (°C)</th><th>Vibration (mm/s)</th>'
+        '<th>Status</th><th>Possible faults</th></tr></thead><tbody>'
+        + "".join(table_rows) + '</tbody></table>'
     )
+    st.markdown(table_html, unsafe_allow_html=True)
 
     st.caption(
         "Status is determined by demonstration sensor thresholds, "
@@ -476,6 +518,15 @@ with tab_graph:
     except Exception as error:
         st.error(f"Graph visualization failed: {error}")
 
+    st.markdown(
+        '<div class="graph-legend">'
+        '<span><i class="graph-dot" style="background:#22D3EE"></i>Machine</span>'
+        '<span><i class="graph-dot" style="background:#60A5FA"></i>Component</span>'
+        '<span><i class="graph-dot" style="background:#A78BFA"></i>Fault / entity</span>'
+        '<span><i class="graph-dot" style="background:#FBBF24"></i>Reading / action</span>'
+        '</div>', unsafe_allow_html=True,
+    )
+
     st.info(
         "The graph includes owl:sameAs links between "
         "the two representations of selected machines."
@@ -504,9 +555,26 @@ with tab_ai:
         st.session_state.chat_history = []
         st.session_state.chat_machine = selected_machine
 
+    def render_answer_with_evidence(answer_text):
+        st.markdown(answer_text)
+        labels = sorted(set(re.findall(r"\\[(SENSOR|KG|DOC)-(\\d+)\\]", answer_text)))
+        if labels:
+            pills = []
+            for kind, number in labels:
+                css_kind = "graph" if kind == "KG" else "doc" if kind == "DOC" else ""
+                pills.append(
+                    f'<span class="evidence-pill {css_kind}">'
+                    f'{html_escape(kind)}-{html_escape(number)}</span>'
+                )
+            st.markdown(
+                '<div class="evidence-strip"><strong>Evidence references</strong> '
+                + "".join(pills) + '</div>', unsafe_allow_html=True,
+            )
+
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+            (render_answer_with_evidence(message["content"])
+             if message["role"] == "assistant" else st.markdown(message["content"]))
 
     question = st.chat_input(
         f"Ask about machine {selected_machine}..."
@@ -533,7 +601,7 @@ with tab_ai:
             with st.spinner("Analyzing retrieved evidence..."):
                 try:
                     answer = answer_with_ollama(full_question)
-                    st.markdown(answer)
+                    render_answer_with_evidence(answer)
 
                     st.session_state.chat_history.append({
                         "role": "assistant",
@@ -573,7 +641,6 @@ with tab_evidence:
                 maintenance_facts = retrieve_maintenance(selected_machine)
                 preview_docs = retrieve_documents(evidence_question, top_k=1)
 
-                from html import escape as html_escape
                 temperature = sensor_facts.get("temperature")
                 vibration = sensor_facts.get("vibration")
                 temp_text = f"{temperature:.1f} °C" if temperature is not None else "No data"
