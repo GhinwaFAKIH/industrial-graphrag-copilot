@@ -172,35 +172,53 @@ def get_graph_html(machine_id):
         cdn_resources="in_line",
     )
 
-    # Compact, readable graph layout for portfolio screenshots.
+    # Hierarchical layout separates related nodes into readable levels.
+    # Physics is disabled to prevent nodes collapsing on top of each other.
     net.set_options("""
     {
+      "layout": {
+        "hierarchical": {
+          "enabled": true,
+          "direction": "LR",
+          "sortMethod": "directed",
+          "levelSeparation": 210,
+          "nodeSpacing": 165,
+          "treeSpacing": 220,
+          "blockShifting": true,
+          "edgeMinimization": true,
+          "parentCentralization": true
+        }
+      },
       "nodes": {
-        "shape": "dot", "size": 23, "borderWidth": 2,
-        "font": {"size": 19, "color": "#F8FAFC",
-                 "strokeWidth": 3, "strokeColor": "#101827"}
+        "shape": "dot",
+        "size": 22,
+        "font": {
+          "size": 17,
+          "color": "#F8FAFC",
+          "strokeWidth": 3,
+          "strokeColor": "#101827"
+        }
       },
       "edges": {
         "color": {"color": "#64748B", "highlight": "#22D3EE"},
         "width": 2,
         "arrows": {"to": {"enabled": true, "scaleFactor": 0.55}},
-        "font": {"size": 14, "color": "#CBD5E1",
-                 "strokeWidth": 3, "strokeColor": "#101827"},
-        "smooth": false
-      },
-      "physics": {
-        "solver": "forceAtlas2Based",
-        "forceAtlas2Based": {
-          "gravitationalConstant": -38,
-          "centralGravity": 0.04,
-          "springLength": 95,
-          "springConstant": 0.12,
-          "damping": 0.85
+        "font": {
+          "size": 12,
+          "color": "#CBD5E1",
+          "strokeWidth": 3,
+          "strokeColor": "#101827",
+          "align": "middle"
         },
-        "stabilization": {"enabled": true, "iterations": 250}
+        "smooth": {"enabled": true, "type": "cubicBezier", "forceDirection": "horizontal"}
       },
-      "interaction": {"hover": true, "navigationButtons": true,
-                      "keyboard": true, "zoomView": true}
+      "physics": {"enabled": false},
+      "interaction": {
+        "hover": true,
+        "navigationButtons": true,
+        "keyboard": true,
+        "zoomView": true
+      }
     }
     """)
 
