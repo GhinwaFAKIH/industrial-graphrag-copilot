@@ -125,7 +125,7 @@ div[data-testid="stChatMessage"] { background: #11243C; border: 1px solid #26476
 .evidence-pill { padding:9px 12px; background:#123C42; border:1px solid #0D9488; border-radius:8px; color:#CFFAFE; font-size:.82rem; }
 .evidence-pill.graph { background:#142D54; border-color:#3B82F6; }
 .evidence-pill.doc { background:#2A1F4B; border-color:#8B5CF6; }
-.graph-legend { display:flex; flex-wrap:wrap; gap:16px; color:#CBD5E1; font-size:.83rem; margin:12px 0; }
+.graph-legend { display:flex; flex-wrap:wrap; gap:16px; color:#CBD5E1; font-size:.83rem; margin:3px 0 12px; padding:10px 12px; background:#101827; border-radius:0 0 9px 9px; }
 .graph-dot { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:5px; }
 
 /* Reference-matched illustrated icon tiles and gradient KPI panels */
@@ -268,7 +268,7 @@ def get_graph_html(machine_id):
         frontier = next_frontier
 
     net = Network(
-        height="550px",
+        height="560px",
         width="100%",
         directed=True,
         bgcolor="#101827",
@@ -379,7 +379,15 @@ def get_graph_html(machine_id):
             title=short_name(p),
         )
 
-    return net.generate_html()
+    graph_html = net.generate_html()
+    graph_html = graph_html.replace(
+        "</head>",
+        '<style>html,body{margin:0!important;padding:0!important;'
+        'background:#101827!important;overflow:hidden!important;}'
+        '#mynetwork{height:560px!important;border:0!important;'
+        'background:#101827!important;}</style></head>',
+    )
+    return graph_html
 
 
 # -----------------------------------
@@ -593,8 +601,8 @@ with tab_graph:
 
         components.html(
             graph_html,
-            height=630,
-            scrolling=True,
+            height=560,
+            scrolling=False,
         )
 
     except Exception as error:
