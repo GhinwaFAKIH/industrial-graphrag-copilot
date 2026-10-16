@@ -172,14 +172,44 @@ def get_graph_html(machine_id):
         cdn_resources="in_line",
     )
 
-    net.barnes_hut()
+    # Compact, readable graph layout for portfolio screenshots.
+    net.set_options("""
+    {
+      "nodes": {
+        "shape": "dot", "size": 23, "borderWidth": 2,
+        "font": {"size": 19, "color": "#F8FAFC",
+                 "strokeWidth": 3, "strokeColor": "#101827"}
+      },
+      "edges": {
+        "color": {"color": "#64748B", "highlight": "#22D3EE"},
+        "width": 2,
+        "arrows": {"to": {"enabled": true, "scaleFactor": 0.55}},
+        "font": {"size": 14, "color": "#CBD5E1",
+                 "strokeWidth": 3, "strokeColor": "#101827"},
+        "smooth": false
+      },
+      "physics": {
+        "solver": "forceAtlas2Based",
+        "forceAtlas2Based": {
+          "gravitationalConstant": -38,
+          "centralGravity": 0.04,
+          "springLength": 95,
+          "springConstant": 0.12,
+          "damping": 0.85
+        },
+        "stabilization": {"enabled": true, "iterations": 250}
+      },
+      "interaction": {"hover": true, "navigationButtons": true,
+                      "keyboard": true, "zoomView": true}
+    }
+    """)
 
     def short_name(value):
         return str(value).split("/")[-1].split("#")[-1]
 
     machine_nodes = {str(sensor_uri), str(maintenance_uri)}
 
-    for s, p, o in triples:
+    for s, p, o in sorted(triples, key=lambda t: tuple(map(str, t))):
         source = str(s)
 
         source_color = (
@@ -191,6 +221,7 @@ def get_graph_html(machine_id):
             label=short_name(s),
             title=source,
             color=source_color,
+            size=32 if source in machine_nodes else 23,
         )
 
         if isinstance(o, URIRef):
@@ -205,6 +236,7 @@ def get_graph_html(machine_id):
                     if target in machine_nodes
                     else "#A78BFA"
                 ),
+                size=32 if target in machine_nodes else 23,
             )
 
         else:
@@ -215,6 +247,7 @@ def get_graph_html(machine_id):
                 label=str(o),
                 title=str(o),
                 color="#FBBF24",
+                size=17,
             )
 
         net.add_edge(
@@ -311,8 +344,9 @@ with tab_fleet:
 
     st.divider()
 
+    display_df = fleet_df.fillna("No data")
     st.dataframe(
-        fleet_df,
+        display_df,
         hide_index=True,
         use_container_width=True,
     )
@@ -399,7 +433,7 @@ with tab_graph:
 
         components.html(
             graph_html,
-            height=570,
+            height=630,
             scrolling=True,
         )
 
