@@ -85,6 +85,24 @@ h1, h2, h3 {
     font-size: 0.95rem;
     margin-bottom: 1rem;
 }
+
+/* Portfolio UI: consistent deep navy, cyan accents and legible cards */
+.stApp { background: #071323; color: #F1F5F9; }
+.block-container { max-width: 1550px; padding-top: 1.3rem; }
+section[data-testid="stSidebar"] { background: #0B1C31; }
+div[data-testid="stMetric"] { background: linear-gradient(145deg,#10243D,#0C1C32); border: 1px solid #24496B; box-shadow: 0 6px 20px #00000022; min-height: 120px; }
+div[data-testid="stMetric"]:nth-child(2) { border-color: #9F354F; }
+div[data-testid="stChatMessage"] { background: #10243D; border-color: #2B5378; padding: 0.9rem 1rem; }
+div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] { color: #22D3EE; }
+div[data-testid="stDataFrame"] { border: 1px solid #27435F; border-radius: 10px; overflow: hidden; }
+div[data-testid="stChatInput"] { border: 1px solid #0891B2; border-radius: 12px; }
+.evidence-card { background: #10243D; border: 1px solid #31516E; border-radius: 12px; padding: 16px; min-height: 160px; }
+.evidence-card h4 { margin: 0 0 12px; color: #67E8F9; font-size: 1.04rem; }
+.evidence-card p { margin: 7px 0; font-size: .94rem; }
+.evidence-card strong { color: #E2E8F0; }
+.evidence-card.sensor { border-color: #0D9488; }
+.evidence-card.graph { border-color: #3B82F6; }
+.evidence-card.docs { border-color: #8B5CF6; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -262,7 +280,7 @@ def get_graph_html(machine_id):
 
             net.add_node(
                 target,
-                label=str(o),
+                label=(str(o)[:31] + "…" if len(str(o)) > 32 else str(o)),
                 title=str(o),
                 color="#FBBF24",
                 size=17,
@@ -355,10 +373,10 @@ with tab_fleet:
 
     c1, c2, c3, c4 = st.columns(4)
 
-    c1.metric("Total Machines", len(MACHINES))
-    c2.metric("Attention Required", attention_count)
-    c3.metric("Normal", normal_count)
-    c4.metric("Unknown", unknown_count)
+    c1.metric("🏭 Total Machines", len(MACHINES))
+    c2.metric("⚠️ Attention Required", attention_count)
+    c3.metric("✅ Normal", normal_count)
+    c4.metric("📋 No Sensor Data", unknown_count)
 
     st.divider()
 
@@ -550,6 +568,47 @@ with tab_evidence:
                     selected_machine,
                     evidence_question,
                 )
+
+                sensor_facts = retrieve_sensors(selected_machine)
+                maintenance_facts = retrieve_maintenance(selected_machine)
+                preview_docs = retrieve_documents(evidence_question, top_k=1)
+
+                from html import escape as html_escape
+                temperature = sensor_facts.get("temperature")
+                vibration = sensor_facts.get("vibration")
+                temp_text = f"{temperature:.1f} °C" if temperature is not None else "No data"
+                vib_text = f"{vibration:.1f} mm/s" if vibration is not None else "No data"
+                first_fact = maintenance_facts[0] if maintenance_facts else {}
+                fault_text = html_escape(str(first_fact.get("fault", "Not documented")))
+                component_text = html_escape(str(first_fact.get("component", "Not documented")))
+                doc_source = html_escape(str(preview_docs[0]["source"])) if preview_docs else "No document"
+                doc_excerpt = html_escape(str(preview_docs[0]["content"])[:190]) if preview_docs else "No matching document found."
+
+                ec1, ec2, ec3 = st.columns(3)
+                with ec1:
+                    st.markdown(
+                        f'<div class="evidence-card sensor"><h4>◉ Sensor Evidence</h4>'
+                        f'<p><strong>Machine:</strong> {selected_machine}</p>'
+                        f'<p><strong>Temperature:</strong> {temp_text}</p>'
+                        f'<p><strong>Vibration:</strong> {vib_text}</p>'
+                        f'<p><strong>Thresholds:</strong> {TEMP_THRESHOLD} °C / {VIBRATION_THRESHOLD} mm/s</p></div>',
+                        unsafe_allow_html=True,
+                    )
+                with ec2:
+                    st.markdown(
+                        f'<div class="evidence-card graph"><h4>◇ Knowledge Graph Facts</h4>'
+                        f'<p><strong>Component:</strong> {component_text}</p>'
+                        f'<p><strong>Possible fault:</strong> {fault_text}</p>'
+                        f'<p><strong>Machine:</strong> {selected_machine}</p></div>',
+                        unsafe_allow_html=True,
+                    )
+                with ec3:
+                    st.markdown(
+                        f'<div class="evidence-card docs"><h4>▤ Retrieved Document</h4>'
+                        f'<p><strong>Source:</strong> {doc_source}</p>'
+                        f'<p>{doc_excerpt}</p></div>',
+                        unsafe_allow_html=True,
+                    )
 
                 st.markdown("#### Combined Evidence")
                 st.code(context, language="text")
