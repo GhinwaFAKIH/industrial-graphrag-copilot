@@ -1,0 +1,16 @@
+
+Cooling System Maintenance Guide — Synthetic Demonstration Document
+
+Document ID: MANUAL-COOLING-001
+
+Elevated equipment temperature can be associated with restricted airflow, cooling fan malfunction, or obstructed ventilation.
+
+Recommended inspection procedure:
+1. Review temperature measurements.
+2. Inspect cooling fan operation.
+3. Check airflow paths and ventilation openings.
+4. Inspect for accumulated dust or obstruction.
+5. Escalate to a qualified maintenance technician before performing any physical intervention.
+
+Temperature elevation alone does not confirm cooling system failure.
+

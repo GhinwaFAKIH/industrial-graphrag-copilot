@@ -1,0 +1,16 @@
+
+Bearing Maintenance Guide — Synthetic Demonstration Document
+
+Document ID: MANUAL-BEARING-001
+
+Excessive vibration and elevated operating temperature may be associated with bearing wear, insufficient lubrication, or mechanical misalignment.
+
+Recommended inspection procedure:
+1. Verify operating conditions and review sensor measurements.
+2. Inspect the bearing lubrication condition.
+3. Check bearing alignment and mechanical mounting.
+4. Inspect for visible wear or damage.
+5. Escalate to a qualified maintenance technician before performing any physical intervention.
+
+These symptoms are not sufficient to confirm bearing failure. Further inspection is required.
+

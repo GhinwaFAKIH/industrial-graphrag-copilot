@@ -1,0 +1,51 @@
+@prefix ex: <https://example.org/industrial/> .
+@prefix ns1: <http://example.org/industrial/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ns1:M102 ns1:hasComponent ns1:Bearing102 .
+
+ns1:M104 ns1:hasComponent ns1:CoolingFan104 .
+
+ex:M-101 a ex:Machine ;
+    ex:hasComponent ex:M-101-Bearing ;
+    ex:temperatureC 61.0 ;
+    ex:vibrationMmS 2.1 .
+
+ex:M-102 a ex:Machine ;
+    ex:hasComponent ex:M-102-Bearing ;
+    ex:temperatureC 89.0 ;
+    ex:vibrationMmS 6.2 .
+
+ex:M-103 a ex:Machine ;
+    ex:hasComponent ex:M-103-Motor ;
+    ex:temperatureC 66.0 ;
+    ex:vibrationMmS 2.8 .
+
+ex:M-104 a ex:Machine ;
+    ex:hasComponent ex:M-104-CoolingSystem ;
+    ex:temperatureC 83.0 ;
+    ex:vibrationMmS 3.1 .
+
+ex:M-105 a ex:Machine ;
+    ex:hasComponent ex:M-105-Motor ;
+    ex:temperatureC 59.0 ;
+    ex:vibrationMmS 1.7 .
+
+ns1:Bearing102 ns1:mayHaveFault ns1:BearingWear .
+
+ns1:BearingWear ns1:recommendedAction "Inspect bearing lubrication and alignment" .
+
+ns1:CoolingFailure ns1:recommendedAction "Inspect cooling fan and airflow" .
+
+ns1:CoolingFan104 ns1:mayHaveFault ns1:CoolingFailure .
+
+ex:M-101-Bearing a ex:Bearing .
+
+ex:M-102-Bearing a ex:Bearing .
+
+ex:M-103-Motor a ex:Motor .
+
+ex:M-104-CoolingSystem a ex:CoolingSystem .
+
+ex:M-105-Motor a ex:Motor .
+

@@ -1,0 +1,54 @@
+@prefix maintenance: <http://example.org/industrial/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix sensor: <https://example.org/industrial/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+sensor:M-101 a sensor:Machine ;
+    sensor:hasComponent sensor:M-101-Bearing ;
+    sensor:temperatureC 61.0 ;
+    sensor:vibrationMmS 2.1 .
+
+sensor:M-102 a sensor:Machine ;
+    owl:sameAs maintenance:M102 ;
+    sensor:hasComponent sensor:M-102-Bearing ;
+    sensor:temperatureC 89.0 ;
+    sensor:vibrationMmS 6.2 .
+
+sensor:M-103 a sensor:Machine ;
+    sensor:hasComponent sensor:M-103-Motor ;
+    sensor:temperatureC 66.0 ;
+    sensor:vibrationMmS 2.8 .
+
+sensor:M-104 a sensor:Machine ;
+    owl:sameAs maintenance:M104 ;
+    sensor:hasComponent sensor:M-104-CoolingSystem ;
+    sensor:temperatureC 83.0 ;
+    sensor:vibrationMmS 3.1 .
+
+sensor:M-105 a sensor:Machine ;
+    sensor:hasComponent sensor:M-105-Motor ;
+    sensor:temperatureC 59.0 ;
+    sensor:vibrationMmS 1.7 .
+
+maintenance:Bearing102 maintenance:mayHaveFault maintenance:BearingWear .
+
+maintenance:BearingWear maintenance:recommendedAction "Inspect bearing lubrication and alignment" .
+
+maintenance:CoolingFailure maintenance:recommendedAction "Inspect cooling fan and airflow" .
+
+maintenance:CoolingFan104 maintenance:mayHaveFault maintenance:CoolingFailure .
+
+maintenance:M102 maintenance:hasComponent maintenance:Bearing102 .
+
+maintenance:M104 maintenance:hasComponent maintenance:CoolingFan104 .
+
+sensor:M-101-Bearing a sensor:Bearing .
+
+sensor:M-102-Bearing a sensor:Bearing .
+
+sensor:M-103-Motor a sensor:Motor .
+
+sensor:M-104-CoolingSystem a sensor:CoolingSystem .
+
+sensor:M-105-Motor a sensor:Motor .
+

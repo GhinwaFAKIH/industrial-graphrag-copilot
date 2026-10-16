@@ -1,0 +1,38 @@
+@prefix ex: <https://example.org/industrial/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+ex:M-101 a ex:Machine ;
+    ex:hasComponent ex:M-101-Bearing ;
+    ex:temperatureC 61.0 ;
+    ex:vibrationMmS 2.1 .
+
+ex:M-102 a ex:Machine ;
+    ex:hasComponent ex:M-102-Bearing ;
+    ex:temperatureC 89.0 ;
+    ex:vibrationMmS 6.2 .
+
+ex:M-103 a ex:Machine ;
+    ex:hasComponent ex:M-103-Motor ;
+    ex:temperatureC 66.0 ;
+    ex:vibrationMmS 2.8 .
+
+ex:M-104 a ex:Machine ;
+    ex:hasComponent ex:M-104-CoolingSystem ;
+    ex:temperatureC 83.0 ;
+    ex:vibrationMmS 3.1 .
+
+ex:M-105 a ex:Machine ;
+    ex:hasComponent ex:M-105-Motor ;
+    ex:temperatureC 59.0 ;
+    ex:vibrationMmS 1.7 .
+
+ex:M-101-Bearing a ex:Bearing .
+
+ex:M-102-Bearing a ex:Bearing .
+
+ex:M-103-Motor a ex:Motor .
+
+ex:M-104-CoolingSystem a ex:CoolingSystem .
+
+ex:M-105-Motor a ex:Motor .
+
