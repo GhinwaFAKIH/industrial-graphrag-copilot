@@ -127,6 +127,31 @@ div[data-testid="stChatMessage"] { background: #11243C; border: 1px solid #26476
 .evidence-pill.doc { background:#2A1F4B; border-color:#8B5CF6; }
 .graph-legend { display:flex; flex-wrap:wrap; gap:16px; color:#CBD5E1; font-size:.83rem; margin:12px 0; }
 .graph-dot { display:inline-block; width:11px; height:11px; border-radius:50%; margin-right:5px; }
+
+/* Reference-matched illustrated icon tiles and gradient KPI panels */
+.kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin:14px 0 22px; }
+.kpi-card { min-height:118px; padding:20px 16px; display:flex; align-items:center; gap:13px; border-radius:14px; border:1px solid #2C527C; background:linear-gradient(140deg,#102D50,#0A1B31); }
+.kpi-card.red { border-color:#BE4567; background:linear-gradient(140deg,#3C2039,#161B31); }
+.kpi-card.green { border-color:#168C71; background:linear-gradient(140deg,#103C39,#0C2333); }
+.kpi-card.gray { border-color:#52647D; background:linear-gradient(140deg,#25364E,#122138); }
+.kpi-icon { flex:0 0 48px; width:48px; height:48px; display:flex; align-items:center; justify-content:center; color:white; border-radius:12px; background:linear-gradient(145deg,#1387F3,#1758B8); box-shadow:0 6px 18px #0003; }
+.red .kpi-icon { background:linear-gradient(145deg,#FF587A,#C72555); }
+.green .kpi-icon { background:linear-gradient(145deg,#16BD84,#08785B); }
+.gray .kpi-icon { background:linear-gradient(145deg,#7086A3,#465A76); }
+.kpi-title { font-size:.84rem; color:#E2E8F0; margin-bottom:5px; white-space:nowrap; }
+.kpi-number { font-size:2.05rem; font-weight:750; line-height:1.05; color:#FFF; }
+.evidence-card { padding:0; overflow:hidden; min-height:235px; }
+.evidence-card h4 { display:flex; align-items:center; gap:10px; padding:14px 15px; margin:0; color:#F8FAFC; background:#075A52; font-size:1rem; }
+.evidence-card.graph h4 { background:#153F85; }
+.evidence-card.docs h4 { background:#4C2D8B; }
+.evidence-card h4 .evidence-icon { display:flex; align-items:center; justify-content:center; width:34px; height:34px; background:#0BAE86; border-radius:8px; color:#FFF; }
+.evidence-card.graph h4 .evidence-icon { background:#2978E7; }
+.evidence-card.docs h4 .evidence-icon { background:#8050E0; }
+.evidence-card .evidence-body { padding:12px 15px 17px; }
+.evidence-card .evidence-body p { padding:5px 0; margin:0; border-bottom:1px solid #213750; }
+.evidence-card .evidence-body p:last-child { border-bottom:none; }
+@media(max-width:1000px) { .kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:550px) { .kpi-grid { grid-template-columns:1fr; } .kpi-title { white-space:normal; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -134,6 +159,27 @@ div[data-testid="stChatMessage"] { background: #11243C; border: 1px solid #26476
 # -----------------------------------
 # Helpers
 # -----------------------------------
+
+# Small inline SVG icons: consistent across macOS, browsers and screenshots.
+# All paths are fixed application assets, not user-generated markup.
+ICON_PATHS = {
+    "machines": '<rect x="3" y="9" width="18" height="12" rx="2"/><path d="M3 9l5-5 5 5 5-5 3 3"/><path d="M8 14v3m5-3v3m5-3v3"/>',
+    "alert": '<path d="M10.3 3.9 2.2 18a2 2 0 0 0 1.7 3h16.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4m0 4h.01"/>',
+    "check": '<path d="m5 12 4 4L19 6"/>',
+    "file": '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 13h8M8 17h6"/>',
+    "sensor": '<path d="M12 19v-7m-5 8h10"/><circle cx="12" cy="8" r="3"/><path d="M6 4a9 9 0 0 0 0 8m12-8a9 9 0 0 1 0 8"/>',
+    "graph": '<circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><path d="m7 11 10-5M7 13l10 5"/>',
+    "bot": '<rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 3v4m-4 6h.01M16 13h.01M9 17h6"/>',
+}
+
+def ui_icon(name, size=22):
+    return (
+        f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" '
+        'fill="none" stroke="currentColor" stroke-width="1.9" '
+        'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        + ICON_PATHS[name] + '</svg>'
+    )
+
 
 MACHINES = [f"M10{i}" for i in range(1, 6)]
 
@@ -395,12 +441,21 @@ tab_fleet, tab_machine, tab_graph, tab_ai, tab_evidence = st.tabs([
 with tab_fleet:
     st.subheader("Fleet Overview")
 
-    c1, c2, c3, c4 = st.columns(4)
-
-    c1.metric("🏭 Total Machines", len(MACHINES))
-    c2.metric("⚠️ Attention Required", attention_count)
-    c3.metric("✅ Normal", normal_count)
-    c4.metric("📋 No Sensor Data", unknown_count)
+    kpis = [
+        ("machines", "Total Machines", len(MACHINES), ""),
+        ("alert", "Attention Required", attention_count, "red"),
+        ("check", "Normal", normal_count, "green"),
+        ("file", "No Data", unknown_count, "gray"),
+    ]
+    kpi_html = '<div class="kpi-grid">'
+    for icon_name, label, count, variant in kpis:
+        kpi_html += (
+            f'<div class="kpi-card {variant}">'
+            f'<span class="kpi-icon">{ui_icon(icon_name, 26)}</span>'
+            f'<div><div class="kpi-title">{html_escape(label)}</div>'
+            f'<div class="kpi-number">{count}</div></div></div>'
+        )
+    st.markdown(kpi_html + '</div>', unsafe_allow_html=True)
 
     st.divider()
 
@@ -654,26 +709,26 @@ with tab_evidence:
                 ec1, ec2, ec3 = st.columns(3)
                 with ec1:
                     st.markdown(
-                        f'<div class="evidence-card sensor"><h4>◉ Sensor Evidence</h4>'
+                        f'<div class="evidence-card sensor"><h4><span class="evidence-icon">{ui_icon("sensor")}</span> Sensor Evidence</h4><div class="evidence-body">'
                         f'<p><strong>Machine:</strong> {selected_machine}</p>'
                         f'<p><strong>Temperature:</strong> {temp_text}</p>'
                         f'<p><strong>Vibration:</strong> {vib_text}</p>'
-                        f'<p><strong>Thresholds:</strong> {TEMP_THRESHOLD} °C / {VIBRATION_THRESHOLD} mm/s</p></div>',
+                        f'<p><strong>Thresholds:</strong> {TEMP_THRESHOLD} °C / {VIBRATION_THRESHOLD} mm/s</p></div></div>',
                         unsafe_allow_html=True,
                     )
                 with ec2:
                     st.markdown(
-                        f'<div class="evidence-card graph"><h4>◇ Knowledge Graph Facts</h4>'
+                        f'<div class="evidence-card graph"><h4><span class="evidence-icon">{ui_icon("graph")}</span> Knowledge Graph Facts</h4><div class="evidence-body">'
                         f'<p><strong>Component:</strong> {component_text}</p>'
                         f'<p><strong>Possible fault:</strong> {fault_text}</p>'
-                        f'<p><strong>Machine:</strong> {selected_machine}</p></div>',
+                        f'<p><strong>Machine:</strong> {selected_machine}</p></div></div>',
                         unsafe_allow_html=True,
                     )
                 with ec3:
                     st.markdown(
-                        f'<div class="evidence-card docs"><h4>▤ Retrieved Document</h4>'
+                        f'<div class="evidence-card docs"><h4><span class="evidence-icon">{ui_icon("file")}</span> Retrieved Document</h4><div class="evidence-body">'
                         f'<p><strong>Source:</strong> {doc_source}</p>'
-                        f'<p>{doc_excerpt}</p></div>',
+                        f'<p>{doc_excerpt}</p></div></div>',
                         unsafe_allow_html=True,
                     )
 
