@@ -152,6 +152,22 @@ div[data-testid="stChatMessage"] { background: #11243C; border: 1px solid #26476
 .evidence-card .evidence-body p:last-child { border-bottom:none; }
 @media(max-width:1000px) { .kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:550px) { .kpi-grid { grid-template-columns:1fr; } .kpi-title { white-space:normal; } }
+
+/* Compact fleet table matching the showcase screenshot */
+.fleet-table-wrap { width:100%; overflow-x:auto; border:1px solid #263B56; border-radius:9px; margin:12px 0 14px; }
+.showcase-table { width:100%; border-collapse:collapse; table-layout:auto; font-size:.86rem; background:#081629; }
+.showcase-table thead th { padding:11px 12px; background:#132239; color:#D8E2F0; font-size:.83rem; font-weight:650; white-space:nowrap; }
+.showcase-table td { padding:10px 12px; border-bottom:1px solid #233751; color:#E2E8F0; line-height:1.3; }
+.showcase-table tr:last-child td { border-bottom:0; }
+.showcase-table td:first-child { color:#F8FAFC; font-weight:700; }
+.showcase-table td:nth-child(2), .showcase-table td:nth-child(3) { font-variant-numeric:tabular-nums; }
+.showcase-table td.reading-alert { color:#FF607B; font-weight:750; }
+.showcase-table .status-attention { color:#FB5E7D; font-weight:650; }
+.showcase-table .status-unknown { color:#98A8BF; font-weight:600; }
+.showcase-table .status-normal { color:#34D399; font-weight:650; }
+.showcase-table .status-dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; background:currentColor; vertical-align:middle; }
+.showcase-table .no-data { color:#91A1B7; }
+@media (max-width:800px) { .showcase-table { min-width:690px; } }
 </style>
 """, unsafe_allow_html=True)
 
@@ -459,28 +475,39 @@ with tab_fleet:
 
     st.divider()
 
-    # HTML table makes missing data and warning states immediately readable.
+    # Compact, color-coded table modeled on the portfolio showcase.
     table_rows = []
     for _, machine in fleet_df.iterrows():
         status = str(machine["Status"])
-        cls = {"Attention": "attention", "Normal": "normal"}.get(status, "unknown")
-        status_icon = {"Attention": "●", "Normal": "●", "Unknown": "●"}.get(status, "●")
-        def display_value(value):
-            return "No data" if pd.isna(value) else html_escape(str(value))
+        status_class = {"Attention": "attention", "Normal": "normal"}.get(status, "unknown")
+        temp = machine["Temperature (°C)"]
+        vibration = machine["Vibration (mm/s)"]
+
+        def reading_cell(value, threshold):
+            if pd.isna(value):
+                return '<td><span class="no-data">No data</span></td>'
+            value_text = f"{float(value):.1f}"
+            highlight = ' class="reading-alert"' if float(value) > threshold else ""
+            return f"<td{highlight}>{value_text}</td>"
+
         table_rows.append(
             "<tr>"
-            f'<td><strong>{html_escape(str(machine["Machine"]))}</strong></td>'
-            f'<td>{display_value(machine["Temperature (°C)"])}</td>'
-            f'<td>{display_value(machine["Vibration (mm/s)"])}</td>'
-            f'<td><span class="status-{cls}">{status_icon} {html_escape(status)}</span></td>'
-            f'<td>{display_value(machine["Possible faults"])}</td>'
-            "</tr>"
+            f'<td>{html_escape(str(machine["Machine"]))}</td>'
+            + reading_cell(temp, TEMP_THRESHOLD)
+            + reading_cell(vibration, VIBRATION_THRESHOLD)
+            + f'<td><span class="status-{status_class}">'
+              '<span class="status-dot"></span>'
+              f'{html_escape(status)}</span></td>'
+            + f'<td>{html_escape(str(machine["Possible faults"]))}</td>'
+            + "</tr>"
         )
+
     table_html = (
-        '<table class="showcase-table"><thead><tr>'
-        '<th>Machine</th><th>Temperature (°C)</th><th>Vibration (mm/s)</th>'
-        '<th>Status</th><th>Possible faults</th></tr></thead><tbody>'
-        + "".join(table_rows) + '</tbody></table>'
+        '<div class="fleet-table-wrap"><table class="showcase-table">'
+        '<thead><tr><th>Machine</th><th>Temperature (°C)</th>'
+        '<th>Vibration (mm/s)</th><th>Status</th>'
+        '<th>Possible faults</th></tr></thead><tbody>'
+        + "".join(table_rows) + '</tbody></table></div>'
     )
     st.markdown(table_html, unsafe_allow_html=True)
 
