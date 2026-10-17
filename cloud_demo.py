@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 import pandas as pd
 import streamlit as st
-from rdflib import Graph, Namespace
+from rdflib import Graph, Namespace, URIRef, Literal, BNode
 
 st.set_page_config(page_title="Industrial GraphRAG Copilot — Public Demo", page_icon="🏭", layout="wide")
 BASE = Path(__file__).resolve().parent
@@ -60,7 +60,7 @@ for mid in [f"M10{i}" for i in range(1, 6)]:
     s = sensors(mid)
     flag = (s.get("temperature", 0) > TEMP_LIMIT or s.get("vibration", 0) > VIB_LIMIT) if s else None
     fleet.append({"Machine": mid, "Temperature °C": s.get("temperature"), "Vibration mm/s": s.get("vibration"), "Demo status": "Attention" if flag else "Normal" if flag is False else "Unknown"})
-tab1, tab2, tab3 = st.tabs(["Fleet", "Machine evidence", "Ask & retrieve"])
+tab1, tab2, tab3, tab4 = st.tabs(["Fleet", "Machine evidence", "Ask & retrieve", "Upload RDF graph"])
 with tab1:
     st.dataframe(pd.DataFrame(fleet), use_container_width=True, hide_index=True)
     st.caption("Illustrative thresholds: temperature > 80 °C or vibration > 5 mm/s.")
@@ -98,5 +98,72 @@ with tab3:
             with st.expander(f"[DOC-{i}] {filename}"):
                 st.write(body)
         st.caption("Document matching in this public edition uses keyword overlap. The local project includes semantic embeddings and Ollama; those components are not active here.")
+
+with tab4:
+    st.subheader("Explore your own RDF knowledge graph")
+    st.warning("Public demo: upload only synthetic or non-confidential RDF/Turtle data. Files are processed in this app session; this is not a secure enterprise upload service.")
+    st.caption("Turtle (.ttl) only · maximum 2 MB · up to 20,000 triples · no files intentionally written to disk.")
+    upload = st.file_uploader("Choose an RDF/Turtle file", type=["ttl"], key="public_rdf_upload")
+    if upload is not None:
+        raw = upload.getvalue()
+        if len(raw) > 2 * 1024 * 1024:
+            st.error("File exceeds the 2 MB demo limit.")
+        else:
+            try:
+                from rdflib.parser import create_input_source
+                from rdflib.plugins.parsers.notation3 import TurtleParser
+                # Parse a local byte stream only. RDFLib's Turtle parser can resolve
+                # external references in some contexts; this demo does not accept
+                # remote URLs, JSON-LD contexts, or user-supplied SPARQL.
+                from io import BytesIO
+                user_graph = Graph()
+                user_graph.parse(source=BytesIO(raw), format="turtle", publicID="urn:public-demo:upload:")
+                if len(user_graph) > 20000:
+                    st.error("Graph exceeds the 20,000-triple demo limit.")
+                else:
+                    subjects = set(user_graph.subjects())
+                    predicates = sorted(set(user_graph.predicates()), key=str)
+                    objects = set(user_graph.objects())
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Triples", len(user_graph))
+                    c2.metric("Subjects", len(subjects))
+                    c3.metric("Predicates", len(predicates))
+                    def compact(term):
+                        if isinstance(term, URIRef):
+                            try:
+                                return user_graph.namespace_manager.normalizeUri(term)
+                            except Exception:
+                                return str(term)
+                        return str(term)
+                    if len(user_graph):
+                        st.subheader("Explore triples")
+                        predicate_options = ["All predicates"] + [str(p) for p in predicates]
+                        chosen = st.selectbox("Filter by predicate", predicate_options, key="uploaded_predicate")
+                        term_search = st.text_input("Find a URI or literal", placeholder="e.g. Machine, hasComponent, temperature", key="uploaded_search").strip().lower()
+                        matching = []
+                        for subj, pred, obj in user_graph:
+                            if chosen != "All predicates" and str(pred) != chosen:
+                                continue
+                            values = (compact(subj), compact(pred), compact(obj))
+                            if term_search and not any(term_search in v.lower() for v in values):
+                                continue
+                            matching.append(values)
+                            if len(matching) >= 201:
+                                break
+                        matching.sort()
+                        st.dataframe(pd.DataFrame(matching[:200], columns=["Subject", "Predicate", "Object"]), hide_index=True, use_container_width=True)
+                        st.caption("Showing at most 200 matching triples. This is graph browsing, not natural-language question answering.")
+                        st.subheader("RDF types")
+                        from rdflib.namespace import RDF
+                        type_rows = [(compact(s), compact(o)) for s, o in user_graph.subject_objects(RDF.type)]
+                        if type_rows:
+                            st.dataframe(pd.DataFrame(sorted(type_rows)[:100], columns=["Entity", "RDF type"]), hide_index=True, use_container_width=True)
+                        else:
+                            st.info("No rdf:type statements were found.")
+                    else:
+                        st.info("This RDF file contains no triples.")
+            except Exception:
+                st.error("Could not parse this Turtle file. Check that it contains valid RDF/Turtle syntax and uses no remote dependencies.")
+
 st.divider()
 st.markdown("Interested in evaluating this approach with your use case? **[Contact by email](mailto:ghinwafkh99@gmail.com?subject=Industrial%20GraphRAG%20Copilot%20feedback)**")
