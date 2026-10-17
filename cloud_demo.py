@@ -4,6 +4,7 @@ import re
 import pandas as pd
 import streamlit as st
 from ollama_cloud import ask_ollama
+from graph_visualization import show_graph
 from rdflib import Graph, Namespace, URIRef, Literal, BNode
 
 st.set_page_config(page_title="Industrial GraphRAG Copilot — Public Demo", page_icon="🏭", layout="wide")
@@ -63,7 +64,7 @@ if source == "Try demo data":
         s = sensors(mid)
         flag = (s.get("temperature", 0) > TEMP_LIMIT or s.get("vibration", 0) > VIB_LIMIT) if s else None
         fleet.append({"Machine": mid, "Temperature °C": s.get("temperature"), "Vibration mm/s": s.get("vibration"), "Demo status": "Attention" if flag else "Normal" if flag is False else "Unknown"})
-    tab1, tab2, tab3, tab4 = st.tabs(["Fleet", "Machine evidence", "Ask & retrieve", "Knowledge graph"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Fleet Overview", "Machine Details", "Knowledge Graph", "AI Assistant", "Evidence Explorer"])
     with tab1:
         st.dataframe(pd.DataFrame(fleet), use_container_width=True, hide_index=True)
         st.caption("Illustrative thresholds: temperature > 80 °C or vibration > 5 mm/s.")
@@ -78,7 +79,7 @@ if source == "Try demo data":
             st.dataframe(pd.DataFrame(facts), use_container_width=True, hide_index=True)
         else:
             st.warning("No maintenance facts available for this machine.")
-    with tab3:
+    with tab4:
         question = st.text_input("Your question", value=f"What might explain abnormal temperature and vibration in {machine}?")
         if st.button("Ask Copilot", type="primary"):
             s = sensors(machine)
@@ -114,7 +115,14 @@ if source == "Try demo data":
                 st.write(answer)
             st.caption("Verify the supporting evidence. Document retrieval uses keyword overlap.")
 
-    with tab4:
+    with tab3:
+        st.subheader("Interactive Knowledge Graph")
+        focus = EX[machine]
+        show_graph(g, focus=focus)
+        st.subheader("RDF triples")
+        st.caption("Drag nodes, zoom, and hover to explore relationships.")
+    with tab5:
+        st.subheader("Evidence Explorer")
         st.subheader("Sample RDF knowledge graph")
         st.metric("Triples", len(g))
         st.dataframe(pd.DataFrame([(str(x), str(y), str(z)) for x,y,z in list(g)[:100]], columns=["Subject","Predicate","Object"]), use_container_width=True, hide_index=True)
@@ -141,7 +149,7 @@ else:
                     return user_graph.namespace_manager.normalizeUri(term) if isinstance(term, URIRef) else str(term)
                 triples = sorted([(compact(a), compact(b), compact(c)) for a,b,c in user_graph])
                 predicates = sorted(set(row[1] for row in triples))
-                t1,t2,t3,t4 = st.tabs(["Overview", "Entities & types", "Ask & retrieve", "Knowledge graph"])
+                t1,t2,t3,t4,t5 = st.tabs(["Fleet Overview", "Machine Details", "Knowledge Graph", "AI Assistant", "Evidence Explorer"])
                 with t1:
                     a,b,c = st.columns(3)
                     a.metric("Triples", len(user_graph))
@@ -150,12 +158,12 @@ else:
                     st.caption("Overview of the uploaded RDF graph. No sample industrial data is mixed in.")
                 with t2:
                     types = sorted([(compact(x),compact(y)) for x,y in user_graph.subject_objects(RDF.type)])
-                    st.subheader("RDF entities and types")
+                    st.subheader("Machine Details — RDF entities and types")
                     if types:
                         st.dataframe(pd.DataFrame(types[:200],columns=["Entity","Type"]),hide_index=True,use_container_width=True)
                     else:
                         st.info("No rdf:type statements found.")
-                with t3:
+                with t4:
                     st.subheader("Ask your RDF knowledge graph")
                     question = st.text_input("Ask a question about entities or relationships", key="own_graph_query")
                     if st.button("Ask Copilot", type="primary", key="own_graph_retrieve"):
@@ -176,8 +184,12 @@ else:
                             with st.expander("Supporting RDF triples"):
                                 st.dataframe(pd.DataFrame(results, columns=["Subject", "Predicate", "Object"]), hide_index=True, use_container_width=True)
                             st.caption("Uploaded-graph retrieval is lexical, not full natural-language-to-SPARQL reasoning.")
-                with t4:
-                    st.subheader("Explore RDF triples")
+                with t3:
+                    st.subheader("Interactive Knowledge Graph")
+                    st.caption("Drag nodes and zoom. A bounded sample is shown for large uploads.")
+                    show_graph(user_graph)
+                with t5:
+                    st.subheader("Evidence Explorer — RDF triples")
                     chosen = st.selectbox("Predicate",["All predicates"]+predicates,key="own_predicate")
                     search = st.text_input("Filter URI or literal",key="own_filter").lower().strip()
                     rows = [row for row in triples if (chosen=="All predicates" or row[1]==chosen) and (not search or any(search in value.lower() for value in row))]
