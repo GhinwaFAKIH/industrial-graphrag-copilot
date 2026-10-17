@@ -54,116 +54,111 @@ def docs_for(question, limit=2):
 
 st.title("🏭 Industrial GraphRAG Copilot")
 st.info("Public evaluation demo · synthetic data only · not a diagnostic or safety system. This cloud edition provides deterministic evidence retrieval, not LLM-generated answers.")
-machine = st.selectbox("Select a simulated machine", [f"M10{i}" for i in range(1, 6)], index=1)
-fleet = []
-for mid in [f"M10{i}" for i in range(1, 6)]:
-    s = sensors(mid)
-    flag = (s.get("temperature", 0) > TEMP_LIMIT or s.get("vibration", 0) > VIB_LIMIT) if s else None
-    fleet.append({"Machine": mid, "Temperature °C": s.get("temperature"), "Vibration mm/s": s.get("vibration"), "Demo status": "Attention" if flag else "Normal" if flag is False else "Unknown"})
-tab1, tab2, tab3, tab4 = st.tabs(["Fleet", "Machine evidence", "Ask & retrieve", "Upload RDF graph"])
-with tab1:
-    st.dataframe(pd.DataFrame(fleet), use_container_width=True, hide_index=True)
-    st.caption("Illustrative thresholds: temperature > 80 °C or vibration > 5 mm/s.")
-with tab2:
-    s = sensors(machine)
-    facts = maintenance(machine)
-    a,b = st.columns(2)
-    a.metric("Temperature", f'{s["temperature"]:.1f} °C' if s else "N/A")
-    b.metric("Vibration", f'{s["vibration"]:.1f} mm/s' if s else "N/A")
-    st.subheader("RDF/SPARQL maintenance facts")
-    if facts:
-        st.dataframe(pd.DataFrame(facts), use_container_width=True, hide_index=True)
-    else:
-        st.warning("No maintenance facts available for this machine.")
-with tab3:
-    question = st.text_input("Your question", value=f"What might explain abnormal temperature and vibration in {machine}?")
-    if st.button("Retrieve evidence", type="primary"):
+source = st.radio("Choose how to explore", ["Try demo data", "Upload your own knowledge graph"], horizontal=True, key="demo_source")
+if source == "Try demo data":
+    machine = st.selectbox("Select a simulated machine", [f"M10{i}" for i in range(1, 6)], index=1)
+    fleet = []
+    for mid in [f"M10{i}" for i in range(1, 6)]:
+        s = sensors(mid)
+        flag = (s.get("temperature", 0) > TEMP_LIMIT or s.get("vibration", 0) > VIB_LIMIT) if s else None
+        fleet.append({"Machine": mid, "Temperature °C": s.get("temperature"), "Vibration mm/s": s.get("vibration"), "Demo status": "Attention" if flag else "Normal" if flag is False else "Unknown"})
+    tab1, tab2, tab3, tab4 = st.tabs(["Fleet", "Machine evidence", "Ask & retrieve", "Knowledge graph"])
+    with tab1:
+        st.dataframe(pd.DataFrame(fleet), use_container_width=True, hide_index=True)
+        st.caption("Illustrative thresholds: temperature > 80 °C or vibration > 5 mm/s.")
+    with tab2:
         s = sensors(machine)
         facts = maintenance(machine)
-        st.subheader("Evidence-based summary")
-        if s:
-            st.write(f"[SENSOR-1] {machine}: temperature {s['temperature']:.1f} °C; [SENSOR-2] vibration {s['vibration']:.1f} mm/s.")
-            if s["temperature"] > TEMP_LIMIT or s["vibration"] > VIB_LIMIT:
-                st.warning("One or more illustrative thresholds are exceeded. This does not confirm a fault.")
-            else:
-                st.success("No illustrative threshold exceedance in this snapshot.")
+        a,b = st.columns(2)
+        a.metric("Temperature", f'{s["temperature"]:.1f} °C' if s else "N/A")
+        b.metric("Vibration", f'{s["vibration"]:.1f} mm/s' if s else "N/A")
+        st.subheader("RDF/SPARQL maintenance facts")
+        if facts:
+            st.dataframe(pd.DataFrame(facts), use_container_width=True, hide_index=True)
         else:
-            st.warning("No sensor evidence available.")
-        for i, fact in enumerate(facts, 1):
-            st.write(f"[KG-{i}] Component: {fact['component']}; possible fault: {fact['fault']}; documented action: {fact['action']}")
-        if not facts:
-            st.write("No maintenance relationships found.")
-        st.subheader("Related synthetic maintenance documents")
-        for i, (_, filename, body) in enumerate(docs_for(question), 1):
-            with st.expander(f"[DOC-{i}] {filename}"):
-                st.write(body)
-        st.caption("Document matching in this public edition uses keyword overlap. The local project includes semantic embeddings and Ollama; those components are not active here.")
-
-with tab4:
-    st.subheader("Explore your own RDF knowledge graph")
-    st.warning("Public demo: upload only synthetic or non-confidential RDF/Turtle data. Files are processed in this app session; this is not a secure enterprise upload service.")
-    st.caption("Turtle (.ttl) only · maximum 2 MB · up to 20,000 triples · no files intentionally written to disk.")
-    upload = st.file_uploader("Choose an RDF/Turtle file", type=["ttl"], key="public_rdf_upload")
-    if upload is not None:
-        raw = upload.getvalue()
-        if len(raw) > 2 * 1024 * 1024:
-            st.error("File exceeds the 2 MB demo limit.")
-        else:
-            try:
-                from rdflib.parser import create_input_source
-                from rdflib.plugins.parsers.notation3 import TurtleParser
-                # Parse a local byte stream only. RDFLib's Turtle parser can resolve
-                # external references in some contexts; this demo does not accept
-                # remote URLs, JSON-LD contexts, or user-supplied SPARQL.
-                from io import BytesIO
-                user_graph = Graph()
-                user_graph.parse(source=BytesIO(raw), format="turtle", publicID="urn:public-demo:upload:")
-                if len(user_graph) > 20000:
-                    st.error("Graph exceeds the 20,000-triple demo limit.")
+            st.warning("No maintenance facts available for this machine.")
+    with tab3:
+        question = st.text_input("Your question", value=f"What might explain abnormal temperature and vibration in {machine}?")
+        if st.button("Retrieve evidence", type="primary"):
+            s = sensors(machine)
+            facts = maintenance(machine)
+            st.subheader("Evidence-based summary")
+            if s:
+                st.write(f"[SENSOR-1] {machine}: temperature {s['temperature']:.1f} °C; [SENSOR-2] vibration {s['vibration']:.1f} mm/s.")
+                if s["temperature"] > TEMP_LIMIT or s["vibration"] > VIB_LIMIT:
+                    st.warning("One or more illustrative thresholds are exceeded. This does not confirm a fault.")
                 else:
-                    subjects = set(user_graph.subjects())
-                    predicates = sorted(set(user_graph.predicates()), key=str)
-                    objects = set(user_graph.objects())
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("Triples", len(user_graph))
-                    c2.metric("Subjects", len(subjects))
-                    c3.metric("Predicates", len(predicates))
-                    def compact(term):
-                        if isinstance(term, URIRef):
-                            try:
-                                return user_graph.namespace_manager.normalizeUri(term)
-                            except Exception:
-                                return str(term)
-                        return str(term)
-                    if len(user_graph):
-                        st.subheader("Explore triples")
-                        predicate_options = ["All predicates"] + [str(p) for p in predicates]
-                        chosen = st.selectbox("Filter by predicate", predicate_options, key="uploaded_predicate")
-                        term_search = st.text_input("Find a URI or literal", placeholder="e.g. Machine, hasComponent, temperature", key="uploaded_search").strip().lower()
-                        matching = []
-                        for subj, pred, obj in user_graph:
-                            if chosen != "All predicates" and str(pred) != chosen:
-                                continue
-                            values = (compact(subj), compact(pred), compact(obj))
-                            if term_search and not any(term_search in v.lower() for v in values):
-                                continue
-                            matching.append(values)
-                            if len(matching) >= 201:
-                                break
-                        matching.sort()
-                        st.dataframe(pd.DataFrame(matching[:200], columns=["Subject", "Predicate", "Object"]), hide_index=True, use_container_width=True)
-                        st.caption("Showing at most 200 matching triples. This is graph browsing, not natural-language question answering.")
-                        st.subheader("RDF types")
-                        from rdflib.namespace import RDF
-                        type_rows = [(compact(s), compact(o)) for s, o in user_graph.subject_objects(RDF.type)]
-                        if type_rows:
-                            st.dataframe(pd.DataFrame(sorted(type_rows)[:100], columns=["Entity", "RDF type"]), hide_index=True, use_container_width=True)
-                        else:
-                            st.info("No rdf:type statements were found.")
+                    st.success("No illustrative threshold exceedance in this snapshot.")
+            else:
+                st.warning("No sensor evidence available.")
+            for i, fact in enumerate(facts, 1):
+                st.write(f"[KG-{i}] Component: {fact['component']}; possible fault: {fact['fault']}; documented action: {fact['action']}")
+            if not facts:
+                st.write("No maintenance relationships found.")
+            st.subheader("Related synthetic maintenance documents")
+            for i, (_, filename, body) in enumerate(docs_for(question), 1):
+                with st.expander(f"[DOC-{i}] {filename}"):
+                    st.write(body)
+            st.caption("Document matching in this public edition uses keyword overlap. The local project includes semantic embeddings and Ollama; those components are not active here.")
+
+    with tab4:
+        st.subheader("Sample RDF knowledge graph")
+        st.metric("Triples", len(g))
+        st.dataframe(pd.DataFrame([(str(x), str(y), str(z)) for x,y,z in list(g)[:100]], columns=["Subject","Predicate","Object"]), use_container_width=True, hide_index=True)
+
+else:
+
+    st.warning("Public demo: upload only synthetic or non-confidential RDF/Turtle data. This is not a secure enterprise upload service.")
+    st.caption("Turtle (.ttl) only · maximum 2 MB · maximum 20,000 triples. No files intentionally saved to disk.")
+    upload = st.file_uploader("Upload RDF/Turtle file", type=["ttl"], key="public_rdf_upload")
+    if upload is None:
+        st.info("Choose a .ttl file to unlock the four exploration tabs below.")
+    elif upload.size > 2 * 1024 * 1024:
+        st.error("File exceeds the 2 MB demo limit.")
+    else:
+        try:
+            from io import BytesIO
+            from rdflib.namespace import RDF
+            user_graph = Graph()
+            user_graph.parse(source=BytesIO(upload.getvalue()), format="turtle", publicID="urn:public-demo:upload:")
+            if len(user_graph) > 20000:
+                st.error("Graph exceeds the 20,000-triple demo limit.")
+            else:
+                def compact(term):
+                    return user_graph.namespace_manager.normalizeUri(term) if isinstance(term, URIRef) else str(term)
+                triples = sorted([(compact(a), compact(b), compact(c)) for a,b,c in user_graph])
+                predicates = sorted(set(row[1] for row in triples))
+                t1,t2,t3,t4 = st.tabs(["Overview", "Entities & types", "Ask & retrieve", "Knowledge graph"])
+                with t1:
+                    a,b,c = st.columns(3)
+                    a.metric("Triples", len(user_graph))
+                    b.metric("Subjects", len(set(user_graph.subjects())))
+                    c.metric("Predicates", len(set(user_graph.predicates())))
+                    st.caption("Overview of the uploaded RDF graph. No sample industrial data is mixed in.")
+                with t2:
+                    types = sorted([(compact(x),compact(y)) for x,y in user_graph.subject_objects(RDF.type)])
+                    st.subheader("RDF entities and types")
+                    if types:
+                        st.dataframe(pd.DataFrame(types[:200],columns=["Entity","Type"]),hide_index=True,use_container_width=True)
                     else:
-                        st.info("This RDF file contains no triples.")
-            except Exception:
-                st.error("Could not parse this Turtle file. Check that it contains valid RDF/Turtle syntax and uses no remote dependencies.")
+                        st.info("No rdf:type statements found.")
+                with t3:
+                    st.subheader("Retrieve graph evidence")
+                    question = st.text_input("Search for an entity, property, or value", key="own_graph_query")
+                    if st.button("Retrieve matching triples", type="primary", key="own_graph_retrieve"):
+                        words = [w.lower() for w in re.findall(r"\w+",question) if len(w)>2]
+                        results = [row for row in triples if words and all(any(w in value.lower() for value in row) for w in words)]
+                        st.dataframe(pd.DataFrame(results[:100],columns=["Subject","Predicate","Object"]),hide_index=True,use_container_width=True)
+                        st.caption(f"{len(results)} matching triples. This is lexical evidence retrieval, not LLM-generated answering.")
+                with t4:
+                    st.subheader("Explore RDF triples")
+                    chosen = st.selectbox("Predicate",["All predicates"]+predicates,key="own_predicate")
+                    search = st.text_input("Filter URI or literal",key="own_filter").lower().strip()
+                    rows = [row for row in triples if (chosen=="All predicates" or row[1]==chosen) and (not search or any(search in value.lower() for value in row))]
+                    st.dataframe(pd.DataFrame(rows[:200],columns=["Subject","Predicate","Object"]),hide_index=True,use_container_width=True)
+                    st.caption(f"Showing {min(200,len(rows))} of {len(rows)} matching triples.")
+        except Exception:
+            st.error("Could not parse the Turtle file. Please check its RDF syntax.")
 
 st.divider()
 st.markdown("Interested in evaluating this approach with your use case? **[Contact by email](mailto:ghinwafkh99@gmail.com?subject=Industrial%20GraphRAG%20Copilot%20feedback)**")
