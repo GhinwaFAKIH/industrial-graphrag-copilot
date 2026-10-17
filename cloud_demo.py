@@ -1,8 +1,9 @@
-"""Public, no-LLM Streamlit demo with synthetic RDF evidence only."""
+"""Public Streamlit demo with evidence-grounded Ollama Cloud answers."""
 from pathlib import Path
 import re
 import pandas as pd
 import streamlit as st
+from ollama_cloud import ask_ollama
 from rdflib import Graph, Namespace, URIRef, Literal, BNode
 
 st.set_page_config(page_title="Industrial GraphRAG Copilot — Public Demo", page_icon="🏭", layout="wide")
@@ -53,7 +54,7 @@ def docs_for(question, limit=2):
     return sorted(results, key=lambda item: (-item[0], item[1]))[:limit]
 
 st.title("🏭 Industrial GraphRAG Copilot")
-st.info("Public evaluation demo · synthetic data only · not a diagnostic or safety system. This cloud edition provides deterministic evidence retrieval, not LLM-generated answers.")
+st.info("Public evaluation prototype · non-confidential data only · not a diagnostic or safety system. Answers use Ollama Cloud and retrieved evidence.")
 source = st.radio("Choose how to explore", ["Try demo data", "Upload your own knowledge graph"], horizontal=True, key="demo_source")
 if source == "Try demo data":
     machine = st.selectbox("Select a simulated machine", [f"M10{i}" for i in range(1, 6)], index=1)
@@ -79,7 +80,7 @@ if source == "Try demo data":
             st.warning("No maintenance facts available for this machine.")
     with tab3:
         question = st.text_input("Your question", value=f"What might explain abnormal temperature and vibration in {machine}?")
-        if st.button("Retrieve evidence", type="primary"):
+        if st.button("Ask Copilot", type="primary"):
             s = sensors(machine)
             facts = maintenance(machine)
             st.subheader("Evidence-based summary")
@@ -99,7 +100,19 @@ if source == "Try demo data":
             for i, (_, filename, body) in enumerate(docs_for(question), 1):
                 with st.expander(f"[DOC-{i}] {filename}"):
                     st.write(body)
-            st.caption("Document matching in this public edition uses keyword overlap. The local project includes semantic embeddings and Ollama; those components are not active here.")
+            evidence = "\n".join(
+                ([f"[SENSOR-1] {machine}: {s}"] if s else [])
+                + [f"[KG-{i}] {fact}" for i, fact in enumerate(facts, 1)]
+                + [f"[DOC-{i}] {name}: {body[:1500]}" for i, (_, name, body) in enumerate(docs_for(question), 1)]
+            )
+            with st.spinner("Asking Ollama Cloud..."):
+                answer, error = ask_ollama(question, evidence)
+            if error:
+                st.warning(error)
+            elif answer:
+                st.subheader("Copilot answer")
+                st.write(answer)
+            st.caption("Verify the supporting evidence. Document retrieval uses keyword overlap.")
 
     with tab4:
         st.subheader("Sample RDF knowledge graph")
@@ -143,13 +156,26 @@ else:
                     else:
                         st.info("No rdf:type statements found.")
                 with t3:
-                    st.subheader("Retrieve graph evidence")
-                    question = st.text_input("Search for an entity, property, or value", key="own_graph_query")
-                    if st.button("Retrieve matching triples", type="primary", key="own_graph_retrieve"):
-                        words = [w.lower() for w in re.findall(r"\w+",question) if len(w)>2]
-                        results = [row for row in triples if words and all(any(w in value.lower() for value in row) for w in words)]
-                        st.dataframe(pd.DataFrame(results[:100],columns=["Subject","Predicate","Object"]),hide_index=True,use_container_width=True)
-                        st.caption(f"{len(results)} matching triples. This is lexical evidence retrieval, not LLM-generated answering.")
+                    st.subheader("Ask your RDF knowledge graph")
+                    question = st.text_input("Ask a question about entities or relationships", key="own_graph_query")
+                    if st.button("Ask Copilot", type="primary", key="own_graph_retrieve"):
+                        words = [w.lower() for w in re.findall(r"\w+", question) if len(w) > 2]
+                        ranked = sorted(triples, key=lambda row: -sum(any(w in value.lower() for value in row) for w in words))
+                        results = [row for row in ranked if any(any(w in value.lower() for value in row) for w in words)][:35]
+                        if not results:
+                            st.warning("No matching RDF evidence. Try an entity or predicate name from your graph.")
+                        else:
+                            evidence = "\n".join(f"[KG-{i}] {a} {b} {c}" for i, (a, b, c) in enumerate(results, 1))
+                            with st.spinner("Asking Ollama Cloud..."):
+                                answer, error = ask_ollama(question, evidence)
+                            if error:
+                                st.warning(error)
+                            elif answer:
+                                st.subheader("Copilot answer")
+                                st.write(answer)
+                            with st.expander("Supporting RDF triples"):
+                                st.dataframe(pd.DataFrame(results, columns=["Subject", "Predicate", "Object"]), hide_index=True, use_container_width=True)
+                            st.caption("Uploaded-graph retrieval is lexical, not full natural-language-to-SPARQL reasoning.")
                 with t4:
                     st.subheader("Explore RDF triples")
                     chosen = st.selectbox("Predicate",["All predicates"]+predicates,key="own_predicate")
